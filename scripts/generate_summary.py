@@ -7,7 +7,7 @@ from google import genai
 
 MODEL = os.environ.get(
     "GEMINI_MODEL",
-    "gemini-2.5-flash"
+    "gemini-3.8-flash",
 )
 
 
@@ -31,6 +31,11 @@ def generate_summary(input_file, output_file):
         encoding="utf-8"
     )
 
+    if not source_text.strip():
+        raise RuntimeError(
+            f"Input file is empty: {input_file}"
+        )
+
     client = genai.Client(
         api_key=api_key
     )
@@ -42,12 +47,13 @@ def generate_summary(input_file, output_file):
 
 要求：
 
-1. 列出 5～10 個重要重點
-2. 保留重要數字、日期、名稱
-3. 不要捏造原文沒有的資訊
-4. 不確定的資訊標示「待確認」
-5. 找出值得注意的變化
-6. 最後提供簡報架構
+1. 列出 5～10 個重要重點。
+2. 保留重要數字、日期、名稱。
+3. 不要捏造原文沒有的資訊。
+4. 不確定的資訊標示「待確認」。
+5. 找出值得注意的變化。
+6. 最後提供適合製作 PowerPoint 的簡報架構。
+7. 摘要內容要簡潔、適合後續程式自動製作簡報。
 
 輸出格式：
 
@@ -77,29 +83,33 @@ def generate_summary(input_file, output_file):
 
 ---
 
-原始資料：
+以下是原始資料：
 
 {source_text}
 """
 
-    response = client.models.generate_content(
+    print(f"Generating summary with model: {MODEL}")
+
+    interaction = client.interactions.create(
         model=MODEL,
-        contents=prompt,
+        input=prompt,
     )
 
-    if not response.text:
+    summary = interaction.output_text
+
+    if not summary:
         raise RuntimeError(
             "Gemini returned an empty response."
         )
 
     output_path.parent.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=True,
     )
 
     output_path.write_text(
-        response.text,
-        encoding="utf-8"
+        summary,
+        encoding="utf-8",
     )
 
     print(
@@ -110,9 +120,9 @@ def generate_summary(input_file, output_file):
 def main():
     if len(sys.argv) != 3:
         print(
-            "Usage:"
-            " python scripts/generate_summary.py"
-            " <input.md> <output.md>"
+            "Usage: "
+            "python scripts/generate_summary.py "
+            "<input.md> <output.md>"
         )
         sys.exit(1)
 
