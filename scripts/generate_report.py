@@ -1,100 +1,46 @@
 from datetime import datetime, timezone
 from pathlib import Path
-import os
+
 
 OUTPUT_DIR = Path("data/reports")
 
-def main():
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-now = datetime.now(timezone.utc)
-date = now.strftime("%Y-%m-%d")
+def generate_report():
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-repository = os.environ.get(
-    "GITHUB_REPOSITORY",
-    "local/repository"
-)
+    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-workflow = os.environ.get(
-    "GITHUB_WORKFLOW",
-    "manual"
-)
+    output_file = OUTPUT_DIR / f"{date}.md"
 
-run_id = os.environ.get(
-    "GITHUB_RUN_ID",
-    "local"
-)
+    content = f"""# Daily Report {date}
 
-output = OUTPUT_DIR / f"{date}.md"
+Generated automatically by GitHub Actions.
 
-content = f"""# Daily Knowledge Report
+## Repository
 
+{__import__("os").environ.get("GITHUB_REPOSITORY", "unknown")}
 
-Date: {date}
+## Workflow
 
-Metadata
+{__import__("os").environ.get("GITHUB_WORKFLOW", "unknown")}
 
-Repository: {repository}
+## Run
 
-Workflow: {workflow}
+{__import__("os").environ.get("GITHUB_RUN_ID", "unknown")}
 
-Run ID: {run_id}
+## Generated At
 
-Generated UTC: {now.isoformat()}
-
-Executive Summary
-
-This report was generated automatically by GitHub Actions.
-
-Knowledge Sources
-
-No external knowledge sources have been configured yet.
-
-Add RSS feeds, APIs, Markdown files, GitHub Issues,
-GitHub Releases, web sources, or other collectors here.
-
-Key Findings
-
-Automated report generation is operational.
-
-Google Drive synchronization is enabled.
-
-Gemini Notebook synchronization is enabled.
-
-AI summary generation is enabled.
-
-PowerPoint generation is enabled.
-
-Follow-up
-
-Configure additional source collectors in this script
-or create separate collector modules.
-
-Pipeline
-GitHub Actions
-    ↓
-Daily Report
-    ↓
-Google Drive
-    ↓
-Gemini Notebook
-    ↓
-Gemini Summary
-    ↓
-PowerPoint
-    ↓
-Google Drive
-
-
+{datetime.now(timezone.utc).isoformat()}
 """
 
-output.write_text(
-    content,
-    encoding="utf-8"
-)
+    output_file.write_text(
+        content,
+        encoding="utf-8",
+    )
 
-print(f"Generated: {output}")
+    print(f"Report generated: {output_file}")
 
 
-if name == "main":
-main()
+if __name__ == "__main__":
+    generate_report()
+
