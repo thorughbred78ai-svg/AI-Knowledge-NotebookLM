@@ -1,169 +1,53 @@
 name: Sync Knowledge Base
 
 on:
-schedule:
-# 01:00 UTC = 09:00 Taiwan Time
-- cron: "0 1 * * *"
+  schedule:
+    # 每天 01:00 UTC = 台灣 09:00
+    - cron: "0 1 * * *"
 
-workflow_dispatch:
+  workflow_dispatch:
 
 permissions:
-contents: read
-id-token: write
-
-concurrency:
-group: knowledge-sync
-cancel-in-progress: false
+  contents: read
 
 jobs:
-sync:
-name: Knowledge Base Pipeline
-runs-on: ubuntu-latest
+  sync:
+    runs-on: ubuntu-latest
 
-env:
-  GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
-  GOOGLE_CLOUD_PROJECT_NUMBER: ${{ vars.GOOGLE_CLOUD_PROJECT_NUMBER }}
-  GOOGLE_CLOUD_LOCATION: ${{ vars.GOOGLE_CLOUD_LOCATION }}
-  DRIVE_FOLDER_ID: ${{ vars.DRIVE_FOLDER_ID }}
-  NOTEBOOK_ID: ${{ vars.NOTEBOOK_ID }}
-  GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_MODEL: gemini-2.5-flash
 
-steps:
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  # ------------------------------------------------------
-  # Checkout
-  # ------------------------------------------------------
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-  - name: Checkout
-    uses: actions/checkout@v6
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-  # ------------------------------------------------------
-  # Python
-  # ------------------------------------------------------
+      - name: Generate report
+        id: report
+        run: |
+          mkdir -p data/reports
 
-  - name: Setup Python
-    uses: actions/setup-python@v5
-    with:
-      python-version: "3.12"
-      cache: pip
+          DATE=$(date -u +"%Y-%m-%d")
 
-  # ------------------------------------------------------
-  # Install dependencies
-  # ------------------------------------------------------
+          echo "DATE=$DATE" >> "$GITHUB_ENV"
 
-  - name: Install dependencies
-    run: |
-      python -m pip install --upgrade pip
-      pip install -r requirements.txt
+          python scripts/generate_report.py
 
-  # ------------------------------------------------------
-  # Google Cloud authentication
-  # ------------------------------------------------------
+      - name: Generate summary
+        run: |
+          mkdir -p data/summaries
 
-  - name: Authenticate to Google Cloud
-    uses: google-github-actions/auth@v3
-    with:
-      workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-      service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          python scripts/generate_summary.py \
+            "data/reports/${DATE}.md" \
+            "data/summaries/${DATE}-summary.md"
 
-  # ------------------------------------------------------
-  # Google Cloud SDK
-  # ------------------------------------------------------
-
-  - name: Setup gcloud
-    uses: google-github-actions/setup-gcloud@v3
-
-  # ------------------------------------------------------
-  # Verify configuration
-  # ------------------------------------------------------
-
-  - name: Verify configuration
-    run: |
-      test -n "$GOOGLE_CLOUD_PROJECT"
-      test -n "$GOOGLE_CLOUD_PROJECT_NUMBER"
-      test -n "$GOOGLE_CLOUD_LOCATION"
-      test -n "$DRIVE_FOLDER_ID"
-      test -n "$NOTEBOOK_ID"
-      test -n "$GEMINI_MODEL"
-
-      echo "Project: $GOOGLE_CLOUD_PROJECT"
-      echo "Location: $GOOGLE_CLOUD_LOCATION"
-      echo "Drive folder configured"
-      echo "Notebook configured"
-      echo "Gemini model: $GEMINI_MODEL"
-
-  # ------------------------------------------------------
-  # Generate daily report
-  # ------------------------------------------------------
-
-  - name: Generate daily report
-    run: |
-      python scripts/generate_report.py
-
-  # ------------------------------------------------------
-  # Upload report to Google Drive
-  # ------------------------------------------------------
-
-  - name: Upload report to Google Drive
-    run: |
-      python scripts/upload_drive.py \
-        data/reports/*.md
-
-  # ------------------------------------------------------
-  # Add report to Gemini Notebook Enterprise
-  # ------------------------------------------------------
-
-  - name: Add report to Gemini Notebook
-    run: |
-      python scripts/notebooklm.py \
-        data/reports/*.md
-
-  # ------------------------------------------------------
-  # Generate AI summary
-  # ------------------------------------------------------
-
-  - name: Generate AI summary
-    run: |
-      python scripts/generate_summary.py \
-        data/reports/*.md
-
-  # ------------------------------------------------------
-  # Upload summary to Google Drive
-  # ------------------------------------------------------
-
-  - name: Upload summary to Google Drive
-    run: |
-      python scripts/upload_drive.py \
-        data/summaries/*.md
-
-  # ------------------------------------------------------
-  # Generate PowerPoint
-  # ------------------------------------------------------
-
-  - name: Generate PowerPoint
-    run: |
-      python scripts/generate_slides.py \
-        data/summaries/*.md
-
-  # ------------------------------------------------------
-  # Upload PowerPoint to Google Drive
-  # ------------------------------------------------------
-
-  - name: Upload PowerPoint to Google Drive
-    run: |
-      python scripts/upload_drive.py \
-        data/presentations/*.pptx
-
-  # ------------------------------------------------------
-  # Upload GitHub Actions artifacts
-  # ------------------------------------------------------
-
-  - name: Upload workflow artifacts
-    uses: actions/upload-artifact@v4
-    with:
-      name: knowledge-output
-      path: |
-        data/reports/
-        data/summaries/
-        data/presentations/
-      retention-days: 14
