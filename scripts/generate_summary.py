@@ -3,130 +3,109 @@ import sys
 from pathlib import Path
 
 from google import genai
-from google.genai import types
+
 
 MODEL = os.environ.get(
-"GEMINI_MODEL",
-"gemini-3.5-flash"
+    "GEMINI_MODEL",
+    "gemini-2.5-flash"
 )
 
-OUTPUT_DIR = Path(
-"data/summaries"
-)
 
-PROMPT = """
-You are a knowledge-management analyst.
+def generate_summary(input_file: str, output_file: str):
+    api_key = os.environ.get("GEMINI_API_KEY")
 
-Read the supplied daily knowledge report.
+    if not api_key:
+        raise RuntimeError(
+            "GEMINI_API_KEY is not set."
+        )
 
-Generate a concise but information-dense Markdown summary.
+    input_path = Path(input_file)
+    output_path = Path(output_file)
 
-Requirements:
+    if not input_path.exists():
+        raise FileNotFoundError(
+            f"Input file not found: {input_file}"
+        )
 
-Do not invent facts.
-
-Preserve important numbers, names, dates and sources.
-
-Clearly distinguish facts from interpretation.
-
-If information is missing, say so.
-
-Prefer bullet points and short paragraphs.
-
-Write in Traditional Chinese.
-
-Keep the report suitable for an executive reader.
-
-Use exactly this structure:
-
-Daily Knowledge Summary
-Executive Summary
-Key Findings
-Important Changes
-Trends
-Risks and Uncertainties
-Follow-up
-Sources
-
-"""
-
-def read_report(path):
-return path.read_text(
-encoding="utf-8"
-)
-
-def generate_summary(client, report):
-response = client.models.generate_content(
-model=MODEL,
-contents=[
-types.Content(
-role="user",
-parts=[
-types.Part.from_text(
-text=PROMPT
-),
-types.Part.from_text(
-text="\n\nSOURCE REPORT:\n"
-+ report
-),
-],
-)
-],
-)
-
-if not response.text:
-    raise RuntimeError(
-        "Gemini returned an empty response."
+    text = input_path.read_text(
+        encoding="utf-8"
     )
 
-return response.text.strip()
+    client = genai.Client(
+        api_key=api_key
+    )
+
+    prompt = f"""
+請將以下知識庫內容整理成繁體中文摘要。
+
+要求：
+
+1. 提供 5～10 個重點
+2. 找出重要事實
+3. 找出值得注意的變化
+4. 如果內容包含數字，保留原始數字
+5. 不要自行捏造資料
+6. 不確定的內容請標示「待確認」
+7. 最後提供「簡報建議架構」
+
+輸出格式：
+
+# 摘要
+
+## 重點
+- ...
+
+## 重要資訊
+- ...
+
+## 待確認
+- ...
+
+## 簡報建議
+1. ...
+2. ...
+3. ...
+
+原始內容：
+
+{text}
+"""
+
+    response = client.models.generate_content(
+        model=MODEL,
+        contents=prompt,
+    )
+
+    output_path.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    output_path.write_text(
+        response.text,
+        encoding="utf-8"
+    )
+
+    print(
+        f"Summary generated: {output_path}"
+    )
 
 
 def main():
-if len(sys.argv) < 2:
-print(
-"Usage: "
-"python scripts/generate_summary.py "
-"<report.md>"
-)
-sys.exit(1)
+    if len(sys.argv) != 3:
+        print(
+            "Usage: "
+            "python generate_summary.py "
+            "<input.md> <output.md>"
+        )
+        sys.exit(1)
 
-report_path = Path(
-    sys.argv[1]
-)
-
-OUTPUT_DIR.mkdir(
-    parents=True,
-    exist_ok=True
-)
-
-client = genai.Client()
-
-report = read_report(
-    report_path
-)
-
-summary = generate_summary(
-    client,
-    report
-)
-
-date = report_path.stem
-
-output = (
-    OUTPUT_DIR
-    / f"{date}-summary.md"
-)
-
-output.write_text(
-    summary,
-    encoding="utf-8"
-)
-
-print(
-    f"Generated summary: {output}"
-)
+    generate_summary(
+        sys.argv[1],
+        sys.argv[2],
+    )
 
 
-if name == "main":
-main()
+if __name__ == "__main__":
+    main()
+
