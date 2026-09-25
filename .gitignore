@@ -1,0 +1,35 @@
+Python
+
+pycache/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+Virtual environment
+
+.venv/
+venv/
+
+Environment
+
+.env
+.env.*
+
+Google credentials
+
+token.json
+credentials.json
+service-account.json
+*.pem
+*.key
+
+Generated output
+
+data/reports/*
+data/summaries/*
+data/presentations/*
+
+Local Google credentials
+
+adc.json
+application_default_credentials.json
