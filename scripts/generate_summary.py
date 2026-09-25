@@ -11,12 +11,12 @@ MODEL = os.environ.get(
 )
 
 
-def generate_summary(input_file: str, output_file: str):
+def generate_summary(input_file, output_file):
     api_key = os.environ.get("GEMINI_API_KEY")
 
     if not api_key:
         raise RuntimeError(
-            "GEMINI_API_KEY is not set."
+            "GEMINI_API_KEY is not configured."
         )
 
     input_path = Path(input_file)
@@ -24,10 +24,10 @@ def generate_summary(input_file: str, output_file: str):
 
     if not input_path.exists():
         raise FileNotFoundError(
-            f"Input file not found: {input_file}"
+            f"Input file not found: {input_path}"
         )
 
-    text = input_path.read_text(
+    source_text = input_path.read_text(
         encoding="utf-8"
     )
 
@@ -36,45 +36,61 @@ def generate_summary(input_file: str, output_file: str):
     )
 
     prompt = f"""
-請將以下知識庫內容整理成繁體中文摘要。
+你是一個知識庫摘要助手。
+
+請將以下 Markdown 文件整理成繁體中文摘要。
 
 要求：
 
-1. 提供 5～10 個重點
-2. 找出重要事實
-3. 找出值得注意的變化
-4. 如果內容包含數字，保留原始數字
-5. 不要自行捏造資料
-6. 不確定的內容請標示「待確認」
-7. 最後提供「簡報建議架構」
+1. 列出 5～10 個重要重點
+2. 保留重要數字、日期、名稱
+3. 不要捏造原文沒有的資訊
+4. 不確定的資訊標示「待確認」
+5. 找出值得注意的變化
+6. 最後提供簡報架構
 
 輸出格式：
 
 # 摘要
 
 ## 重點
-- ...
+
+- 
 
 ## 重要資訊
-- ...
+
+- 
+
+## 值得注意的變化
+
+- 
 
 ## 待確認
-- ...
 
-## 簡報建議
-1. ...
-2. ...
-3. ...
+- 
 
-原始內容：
+## 簡報架構
 
-{text}
+1.
+2.
+3.
+
+---
+
+原始資料：
+
+{source_text}
 """
 
     response = client.models.generate_content(
         model=MODEL,
         contents=prompt,
     )
+
+    if not response.text:
+        raise RuntimeError(
+            "Gemini returned an empty response."
+        )
 
     output_path.parent.mkdir(
         parents=True,
@@ -94,9 +110,9 @@ def generate_summary(input_file: str, output_file: str):
 def main():
     if len(sys.argv) != 3:
         print(
-            "Usage: "
-            "python generate_summary.py "
-            "<input.md> <output.md>"
+            "Usage:"
+            " python scripts/generate_summary.py"
+            " <input.md> <output.md>"
         )
         sys.exit(1)
 
@@ -108,4 +124,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
