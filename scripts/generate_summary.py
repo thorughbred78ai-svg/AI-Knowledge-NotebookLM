@@ -1,3 +1,14 @@
+- name: Check Gemini configuration
+  run: |
+    if [ -z "$GEMINI_API_KEY" ]; then
+      echo "ERROR: GEMINI_API_KEY is missing"
+      exit 1
+    fi
+
+    echo "GEMINI_API_KEY is configured"
+    echo "GEMINI_MODEL=$GEMINI_MODEL"
+
+
 import os
 import sys
 from pathlib import Path
